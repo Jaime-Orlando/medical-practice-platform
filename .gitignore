@@ -1,0 +1,30 @@
+# macOS
+.DS_Store
+
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# VS Code
+.vscode/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Java / Maven
+target/
+*.class
+
+# Node
+node_modules/
+dist/
+build/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.swp
