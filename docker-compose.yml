@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: medical-postgres
+    environment:
+      POSTGRES_DB: medical
+      POSTGRES_USER: medical
+      POSTGRES_PASSWORD: medical_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - medical_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  medical_postgres_data:
