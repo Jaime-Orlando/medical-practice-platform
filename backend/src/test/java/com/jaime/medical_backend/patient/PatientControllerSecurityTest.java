@@ -88,4 +88,63 @@ public class PatientControllerSecurityTest {
                 .andExpect(jsonPath("$.active").value(true));
 
     }
+
+    @Test
+    void returnsNotFoundWhenPatientDoesNotExist() throws Exception {
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+        DoctorPrincipal principal = new DoctorPrincipal(
+                doctorId,
+                practiceId,
+                "doctor@example.com",
+                "unused",
+                true
+        );
+
+        Authentication authentication =
+                UsernamePasswordAuthenticationToken.authenticated(
+                        principal,
+                        null,
+                        principal.getAuthorities()
+                );
+        when(patientService.getPatientForCurrentDoctor(patientId))
+                .thenThrow(new PatientNotFoundException(patientId));
+
+        mockMvc.perform(
+                        get("/api/patients/{patientId}", patientId)
+                                .with(authentication(authentication))
+                )
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void returnsForbiddenWhenDoctorCannotAccessPatient() throws Exception {
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+        DoctorPrincipal principal = new DoctorPrincipal(
+                doctorId,
+                practiceId,
+                "doctor@example.com",
+                "unused",
+                true
+        );
+
+        Authentication authentication =
+                UsernamePasswordAuthenticationToken.authenticated(
+                        principal,
+                        null,
+                        principal.getAuthorities()
+                );
+
+        when(patientService.getPatientForCurrentDoctor(patientId))
+                .thenThrow(new PatientAccessDeniedException());
+
+        mockMvc.perform(
+                        get("/api/patients/{patientId}", patientId)
+                                .with(authentication(authentication))
+                )
+                .andExpect(status().isForbidden());
+    }
 }
