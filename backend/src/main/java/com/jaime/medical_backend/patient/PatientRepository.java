@@ -11,4 +11,14 @@ public interface PatientRepository extends JpaRepository<Patient, UUID> {
     Optional<Patient> findByPracticeIdAndMedicalRecordNumber(UUID practiceId, String medicalRecordNumber);
 
     Optional<Patient> findByPracticeIdAndCurp(UUID practiceId, String curp);
+
+    boolean existsByPracticeIdAndMedicalRecordNumber(
+            UUID practiceId,
+            String medicalRecordNumber
+    );
+
+    boolean existsByPracticeIdAndCurp(
+            UUID practiceId,
+            String curp
+    );
 }
