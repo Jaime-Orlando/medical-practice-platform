@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -15,6 +16,16 @@ public class PatientController {
 
     public PatientController(PatientService patientService) {
         this.patientService = patientService;
+    }
+
+    @GetMapping
+    public List<PatientSummaryResponse> getPatients(
+            @RequestParam(required = false) String query
+    ) {
+        return patientService.getPatientsForCurrentDoctor(query)
+                .stream()
+                .map(PatientSummaryResponse::from)
+                .toList();
     }
 
     @GetMapping("/{patientId}")

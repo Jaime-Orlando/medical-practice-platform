@@ -13,11 +13,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.http.MediaType;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
@@ -274,5 +274,102 @@ public class PatientControllerSecurityTest {
                 )
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(patientService);
+    }
+
+    @Test
+    void authenticatedDoctorCanListPatients() throws Exception {
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+
+        Authentication authentication =
+                authenticatedDoctor(doctorId, practiceId);
+
+        Practice practice = new Practice("Test Practice");
+
+        Patient maria = new Patient(
+                practice,
+                "MR-100",
+                "Maria",
+                "Lopez",
+                "Garcia",
+                LocalDate.of(1988, 5, 10),
+                "FEMALE",
+                null,
+                null,
+                "5551234567"
+        );
+
+        Patient juan = new Patient(
+                practice,
+                "MR-101",
+                "Juan",
+                "Perez",
+                null,
+                LocalDate.of(1990, 1, 1),
+                "MALE",
+                null,
+                null,
+                "5559876543"
+        );
+
+        when(patientService.getPatientsForCurrentDoctor(null))
+                .thenReturn(List.of(maria, juan));
+
+        mockMvc.perform(
+                        get("/api/patients")
+                                .with(authentication(authentication))
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].medicalRecordNumber").value("MR-100"))
+                .andExpect(jsonPath("$[0].firstName").value("Maria"))
+                .andExpect(jsonPath("$[1].medicalRecordNumber").value("MR-101"))
+                .andExpect(jsonPath("$[1].firstName").value("Juan"));
+    }
+
+    @Test
+    void unauthenticatedRequestCannotListPatients() throws Exception {
+        mockMvc.perform(get("/api/patients"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void authenticatedDoctorCanSearchPatients() throws Exception {
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+
+        Authentication authentication =
+                authenticatedDoctor(doctorId, practiceId);
+
+        Practice practice = new Practice("Test Practice");
+
+        Patient maria = new Patient(
+                practice,
+                "MR-100",
+                "Maria",
+                "Lopez",
+                "Garcia",
+                LocalDate.of(1988, 5, 10),
+                "FEMALE",
+                null,
+                null,
+                "5551234567"
+        );
+
+        when(patientService.getPatientsForCurrentDoctor("Maria"))
+                .thenReturn(List.of(maria));
+
+        mockMvc.perform(
+                        get("/api/patients")
+                                .param("query", "Maria")
+                                .with(authentication(authentication))
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].medicalRecordNumber").value("MR-100"))
+                .andExpect(jsonPath("$[0].firstName").value("Maria"));
+
+        verify(patientService)
+                .getPatientsForCurrentDoctor("Maria");
     }
 }

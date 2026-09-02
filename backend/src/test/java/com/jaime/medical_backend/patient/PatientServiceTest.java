@@ -13,8 +13,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -451,5 +453,100 @@ public class PatientServiceTest {
         verify(doctorPatientRepository, never())
                 .save(any(DoctorPatient.class));
     }
+
+    @Test
+    void returnActivePatientsForCurrentDoctor() {
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+
+        DoctorPrincipal principal = new DoctorPrincipal(
+                doctorId,
+                practiceId,
+                "doctor@example.com",
+                "unused",
+                true
+        );
+
+        Patient patient1 = mock(Patient.class);
+        Patient patient2 = mock(Patient.class);
+
+        when(currentDoctor.principal()).thenReturn(principal);
+
+        when(patientRepository.findAll(any(Specification.class)))
+                .thenReturn(List.of(patient1, patient2));
+
+        List<Patient> result =
+                patientService.getPatientsForCurrentDoctor(null);
+
+        assertEquals(2, result.size());
+        assertSame(patient1, result.get(0));
+        assertSame(patient2, result.get(1));
+
+        verify(patientRepository)
+                .findAll(any(Specification.class));
+    }
+
+    @Test
+    void listAllActivePatientsWhenSearchQueryIsBlank() {
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+
+        DoctorPrincipal principal = new DoctorPrincipal(
+                doctorId,
+                practiceId,
+                "doctor@example.com",
+                "unused",
+                true
+        );
+
+        Patient patient = mock(Patient.class);
+
+        when(currentDoctor.principal()).thenReturn(principal);
+        when(patientRepository.findAll(any(Specification.class)))
+                .thenReturn(List.of(patient));
+
+        List<Patient> result =
+                patientService.getPatientsForCurrentDoctor("   ");
+
+        assertEquals(1, result.size());
+        assertSame(patient, result.get(0));
+
+        verify(patientRepository)
+                .findAll(any(Specification.class));
+
+    }
+
+    @Test
+    void searchActivePatientsWhenQueryIsProvided() {
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+
+        DoctorPrincipal principal = new DoctorPrincipal(
+                doctorId,
+                practiceId,
+                "doctor@example.com",
+                "unused",
+                true
+        );
+
+        Patient patient = mock(Patient.class);
+
+        when(currentDoctor.principal()).thenReturn(principal);
+
+        when(patientRepository.findAll(any(Specification.class)))
+                .thenReturn(List.of(patient));
+
+        List<Patient> result =
+                patientService.getPatientsForCurrentDoctor("  Maria  ");
+
+        assertEquals(1, result.size());
+        assertSame(patient, result.get(0));
+
+        verify(patientRepository)
+                .findAll(any(Specification.class));
+
+    }
+
+
 
 }

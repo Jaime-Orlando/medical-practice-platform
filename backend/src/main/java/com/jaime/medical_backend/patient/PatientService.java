@@ -10,9 +10,11 @@ import com.jaime.medical_backend.practice.PracticeNotFoundException;
 import com.jaime.medical_backend.practice.PracticeRepository;
 import com.jaime.medical_backend.security.CurrentDoctor;
 import com.jaime.medical_backend.security.DoctorPrincipal;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -91,5 +93,22 @@ public class PatientService {
 
         doctorPatientRepository.save(doctorPatient);
         return savedPatient;
+    }
+    @Transactional(readOnly = true)
+    public List<Patient> getPatientsForCurrentDoctor(String query) {
+        DoctorPrincipal principal = currentDoctor.principal();
+
+        Specification<Patient> specification =
+                PatientSpecifications.activeForDoctor(
+                        principal.getDoctorId()
+                );
+
+        if (query != null && !query.isBlank()) {
+            specification = specification.and(
+                    PatientSpecifications.matchesSearchTerms(query)
+            );
+        }
+
+        return patientRepository.findAll(specification);
     }
 }
