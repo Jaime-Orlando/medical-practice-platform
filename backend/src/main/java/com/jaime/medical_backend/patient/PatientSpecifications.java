@@ -16,7 +16,7 @@ public final class PatientSpecifications {
     private PatientSpecifications() {
     }
 
-    public static Specification<Patient> activeForDoctor(UUID doctorId) {
+    public static Specification<Patient> activeForDoctor(UUID doctorId, UUID practiceId) {
         return (root, query, criteriaBuilder) -> {
 
             Subquery<Integer> subquery =
@@ -43,6 +43,7 @@ public final class PatientSpecifications {
 
             return criteriaBuilder.and(
                     criteriaBuilder.isTrue(root.get("active")),
+                    criteriaBuilder.equal(root.get("practice").get("id"), practiceId),
                     criteriaBuilder.exists(subquery)
             );
         };

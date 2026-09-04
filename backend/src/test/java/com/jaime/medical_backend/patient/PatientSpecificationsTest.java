@@ -117,7 +117,7 @@ class PatientSpecificationsTest {
         );
         List<Patient> result =
                 patientRepository.findAll(
-                        PatientSpecifications.activeForDoctor(doctor.getId())
+                        PatientSpecifications.activeForDoctor(doctor.getId(), doctor.getPractice().getId())
                 );
 
         assertEquals(1, result.size());
@@ -154,7 +154,7 @@ class PatientSpecificationsTest {
 
         List<Patient> result =
                 patientRepository.findAll(
-                        PatientSpecifications.activeForDoctor(doctor2.getId())
+                        PatientSpecifications.activeForDoctor(doctor2.getId(), doctor2.getPractice().getId())
                 );
 
         assertTrue(result.isEmpty());
@@ -184,7 +184,7 @@ class PatientSpecificationsTest {
 
         List<Patient> result =
                 patientRepository.findAll(
-                        PatientSpecifications.activeForDoctor(doctor.getId())
+                        PatientSpecifications.activeForDoctor(doctor.getId(), doctor.getPractice().getId())
                 );
 
         assertTrue(result.isEmpty());
@@ -216,7 +216,7 @@ class PatientSpecificationsTest {
 
         List<Patient> result =
                 patientRepository.findAll(
-                        PatientSpecifications.activeForDoctor(doctor.getId())
+                        PatientSpecifications.activeForDoctor(doctor.getId(), doctor.getPractice().getId())
                 );
 
         assertTrue(result.isEmpty());
@@ -245,7 +245,7 @@ class PatientSpecificationsTest {
 
         List<Patient> result =
                 patientRepository.findAll(
-                        PatientSpecifications.activeForDoctor(doctor.getId())
+                        PatientSpecifications.activeForDoctor(doctor.getId(), doctor.getPractice().getId())
                                 .and(PatientSpecifications.matchesSearchTerms("Maria"))
                 );
 
@@ -274,7 +274,7 @@ class PatientSpecificationsTest {
 
         List<Patient> result =
                 patientRepository.findAll(
-                        PatientSpecifications.activeForDoctor(doctor.getId())
+                        PatientSpecifications.activeForDoctor(doctor.getId(), doctor.getPractice().getId())
                                 .and(PatientSpecifications.matchesSearchTerms("Maria Lopez"))
                 );
         assertEquals(1, result.size());
@@ -302,7 +302,7 @@ class PatientSpecificationsTest {
 
         List<Patient> result =
                 patientRepository.findAll(
-                        PatientSpecifications.activeForDoctor(doctor.getId())
+                        PatientSpecifications.activeForDoctor(doctor.getId(), doctor.getPractice().getId())
                                 .and(PatientSpecifications.matchesSearchTerms("Lopez Maria"))
                 );
         assertEquals(1, result.size());
@@ -331,7 +331,7 @@ class PatientSpecificationsTest {
 
         List<Patient> result =
                 patientRepository.findAll(
-                        PatientSpecifications.activeForDoctor(doctor.getId())
+                        PatientSpecifications.activeForDoctor(doctor.getId(), doctor.getPractice().getId())
                                 .and(PatientSpecifications.matchesSearchTerms("MR-100"))
                 );
         assertEquals(1, result.size());
@@ -369,7 +369,7 @@ class PatientSpecificationsTest {
 
         List<Patient> result =
                 patientRepository.findAll(
-                        PatientSpecifications.activeForDoctor(doctor.getId())
+                        PatientSpecifications.activeForDoctor(doctor.getId(), doctor.getPractice().getId())
                                 .and(PatientSpecifications.matchesSearchTerms("Maria Perez"))
                 );
         assertTrue(result.isEmpty());
@@ -397,7 +397,7 @@ class PatientSpecificationsTest {
 
         List<Patient> result =
                 patientRepository.findAll(
-                        PatientSpecifications.activeForDoctor(doctor.getId())
+                        PatientSpecifications.activeForDoctor(doctor.getId(), doctor.getPractice().getId())
                                 .and(PatientSpecifications.matchesSearchTerms("mArIa lOpEz"))
                 );
         assertEquals(1, result.size());
@@ -432,9 +432,53 @@ class PatientSpecificationsTest {
 
         List<Patient> result =
                 patientRepository.findAll(
-                        PatientSpecifications.activeForDoctor(doctor2.getId())
+                        PatientSpecifications.activeForDoctor(doctor2.getId(), doctor2.getPractice().getId())
                                 .and(PatientSpecifications.matchesSearchTerms("Maria Lopez"))
                 );
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void shouldExcludePatientFromAnotherPracticeEvenWhenAssignedToDoctor() {
+        Doctor doctor = saveDoctor(
+                "Ana",
+                "Lopez",
+                "ana@example.com"
+        );
+
+        Practice otherPractice = practiceRepository.save(
+                new Practice("Other Practice")
+        );
+
+        Patient patient = patientRepository.save(
+                new Patient(
+                        otherPractice,
+                        "MR-200",
+                        "Maria",
+                        "Lopez",
+                        "Garcia",
+                        LocalDate.of(1988, 5, 10),
+                        "FEMALE",
+                        null,
+                        null,
+                        null
+                )
+        );
+
+        // Deliberately create inconsistent data:
+        // doctor belongs to Practice A, patient belongs to Practice B.
+        doctorPatientRepository.save(
+                new DoctorPatient(doctor, patient)
+        );
+
+        List<Patient> result =
+                patientRepository.findAll(
+                        PatientSpecifications.activeForDoctor(
+                                doctor.getId(),
+                                practice.getId()
+                        )
+                );
+
         assertTrue(result.isEmpty());
     }
 }

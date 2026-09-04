@@ -100,7 +100,8 @@ public class PatientService {
 
         Specification<Patient> specification =
                 PatientSpecifications.activeForDoctor(
-                        principal.getDoctorId()
+                        principal.getDoctorId(),
+                        principal.getPracticeId()
                 );
 
         if (query != null && !query.isBlank()) {
