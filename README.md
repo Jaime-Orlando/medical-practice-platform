@@ -1,6 +1,6 @@
 # Medical Practice Platform
 
-**Status: backend under development · private repository**
+**Status: backend under development**
 
 A multi-specialty medical practice management platform built as a hands-on backend engineering project using **Java 21, Spring Boot, and PostgreSQL**. The goal is to support doctors managing their patients within a practice, with room for specialty-specific clinical workflows in later phases.
 
@@ -41,7 +41,7 @@ Prerequisites: Java 21, Maven (or the provided Maven wrapper), and Docker Compos
 2. From `backend/`, run `./mvnw spring-boot:run` (or `mvnw.cmd spring-boot:run` on Windows).
 3. Run `./mvnw test` from `backend/` for the test suite.
 
-The current configuration includes **development-only database credentials** checked into local configuration files. Do not reuse these credentials elsewhere, expose the database to untrusted networks, or load real patient information. Configuration hardening and a sensitive-data/history audit are required before public release or deployment.
+The current configuration includes **development-only database credentials** checked into local configuration files. Do not reuse these credentials elsewhere, expose the database to untrusted networks, or load real patient information. Configuration hardening and a sensitive-data/history audit remain prerequisites for deployment or use with real patient data.
 
 ## Current scope and next steps
 
