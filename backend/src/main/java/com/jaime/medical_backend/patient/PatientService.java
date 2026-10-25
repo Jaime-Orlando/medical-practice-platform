@@ -112,4 +112,36 @@ public class PatientService {
 
         return patientRepository.findAll(specification);
     }
+
+    @Transactional
+    public Patient updatePatient(
+            UUID patientId,
+            UpdatePatientRequest request
+    ) {
+        Patient patient = getPatientForCurrentDoctor(patientId);
+        String email = request.email() != null
+                ? request.email()
+                : patient.getEmail();
+
+        String phoneNumber = request.phoneNumber() != null
+                ? request.phoneNumber()
+                : patient.getPhoneNumber();
+
+        String firstName = request.firstName() != null
+                ? request.firstName()
+                : patient.getFirstName();
+
+        String paternalSurname = request.paternalSurname() != null
+                ? request.paternalSurname()
+                : patient.getPaternalSurname();
+
+        String maternalSurname = request.maternalSurname() != null
+                ? request.maternalSurname()
+                : patient.getMaternalSurname();
+
+
+        patient.updateName(firstName, paternalSurname, maternalSurname);
+        patient.updateContactInformation(email, phoneNumber);
+        return patient;
+    }
 }

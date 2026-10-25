@@ -547,6 +547,167 @@ public class PatientServiceTest {
 
     }
 
+    @Test
+    void shouldUpdateOnlyProvidedPatientFields() {
+        // Arrange
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+
+        DoctorPrincipal principal = new DoctorPrincipal(
+                doctorId,
+                practiceId,
+                "doctor@example.com",
+                "unused",
+                true
+        );
+
+        Practice practice = mock(Practice.class);
+
+        Patient patient = new Patient(
+                practice,
+                "MR-100",
+                "Maria",
+                "Lopez",
+                "Garcia",
+                LocalDate.of(1988, 5, 10),
+                "FEMALE",
+                null,
+                "maria@example.com",
+                "5511111111"
+        );
+
+        when(currentDoctor.principal()).thenReturn(principal);
+        when(patientRepository.findByIdAndPracticeId(
+                patientId,
+                practiceId
+        )).thenReturn(Optional.of(patient));
+        when(doctorPatientRepository
+                .existsByDoctor_IdAndPatient_IdAndActiveTrue(
+                        doctorId,
+                        patientId
+                )).thenReturn(true);
+        UpdatePatientRequest request = new UpdatePatientRequest(
+                "Mariana",
+                null,
+                null,
+                null,
+                "5522222222"
+        );
+
+        // Act
+        Patient result = patientService.updatePatient(patientId, request);
+
+        // Assert
+        assertEquals("Mariana", result.getFirstName());
+        assertEquals("Lopez", result.getPaternalSurname());
+        assertEquals("Garcia", result.getMaternalSurname());
+        assertEquals("maria@example.com", result.getEmail());
+        assertEquals("5522222222", result.getPhoneNumber());
+        verify(patientRepository, never()).save(any(Patient.class));
+
+    }
+
+    @Test
+    void shouldRejectUpdateWhenPatientIsNotAssignedToDoctor() {
+        // Arrange
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+
+        Practice practice = mock(Practice.class);
+
+        Patient patient = new Patient(
+                practice,
+                "MR-100",
+                "Maria",
+                "Lopez",
+                "Garcia",
+                LocalDate.of(1988, 5, 10),
+                "FEMALE",
+                null,
+                "maria@example.com",
+                "5511111111"
+        );
+
+        DoctorPrincipal principal = new DoctorPrincipal(
+                doctorId,
+                practiceId,
+                "doctor@example.com",
+                "unused",
+                true
+        );
+
+        when(currentDoctor.principal()).thenReturn(principal);
+        when(patientRepository.findByIdAndPracticeId(
+                patientId,
+                practiceId
+        )).thenReturn(Optional.of(patient));
+
+        when(doctorPatientRepository
+                .existsByDoctor_IdAndPatient_IdAndActiveTrue(
+                        doctorId,
+                        patientId
+                )).thenReturn(false);
+
+
+        // Act & Assert
+        assertThrows(PatientAccessDeniedException.class, () -> patientService.updatePatient(patientId, new UpdatePatientRequest("Mariana", null, null, null, null)));
+        assertEquals("Maria", patient.getFirstName());
+        verify(patientRepository, never()).save(any(Patient.class));
+    }
+
+    @Test
+    void shouldRejectUpdateWhenPatientBelongsToAnotherPractice() {
+        // Arrange
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+
+        Practice practice = mock(Practice.class);
+
+        Patient patient = new Patient(
+                practice,
+                "MR-100",
+                "Maria",
+                "Lopez",
+                "Garcia",
+                LocalDate.of(1988, 5, 10),
+                "FEMALE",
+                null,
+                "maria@example.com",
+                "5511111111"
+        );
+
+        DoctorPrincipal principal = new DoctorPrincipal(
+                doctorId,
+                practiceId,
+                "doctor@example.com",
+                "unused",
+                true
+        );
+
+        when(currentDoctor.principal()).thenReturn(principal);
+        when(patientRepository.findByIdAndPracticeId(
+                patientId,
+                practiceId
+        )).thenReturn(Optional.empty());
+
+        UpdatePatientRequest request = new UpdatePatientRequest("Mariana", null, null, null, null);
+        // Act & Assert
+        assertThrows(
+                PatientNotFoundException.class,
+                () -> patientService.updatePatient(patientId, request)
+        );
+
+        verify(
+                doctorPatientRepository,
+                never()
+        ).existsByDoctor_IdAndPatient_IdAndActiveTrue(
+                any(UUID.class),
+                any(UUID.class)
+        );
+    }
 
 
 }
