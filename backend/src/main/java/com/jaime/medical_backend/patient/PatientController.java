@@ -46,4 +46,14 @@ public class PatientController {
                 .status(HttpStatus.CREATED)
                 .body(PatientResponse.from(patient));
     }
+
+    @PatchMapping("/{patientId}")
+    public ResponseEntity<PatientResponse> updatePatient(
+            @PathVariable UUID patientId,
+            @Valid @RequestBody UpdatePatientRequest request
+    ) {
+        Patient patient = patientService.updatePatient(patientId, request);
+        PatientResponse response = PatientResponse.from(patient);
+        return ResponseEntity.ok(response);
+    }
 }

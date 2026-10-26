@@ -3,6 +3,7 @@ package com.jaime.medical_backend.patient;
 import com.jaime.medical_backend.practice.Practice;
 import com.jaime.medical_backend.security.DoctorPrincipal;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -11,19 +12,21 @@ import org.springframework.security.core.Authentication;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.http.MediaType;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -371,5 +374,72 @@ public class PatientControllerSecurityTest {
 
         verify(patientService)
                 .getPatientsForCurrentDoctor("Maria");
+    }
+
+    @Test
+    void shouldUpdatePatientWhenRequestIsValid() throws Exception {
+        // Arrange
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+
+        Authentication authentication =
+                authenticatedDoctor(doctorId, practiceId);
+
+        Practice practice = new Practice("Test Practice");
+
+        Patient updatedPatient = new Patient(
+                practice,
+                "MR-100",
+                "Mariana",
+                "Lopez",
+                "Garcia",
+                LocalDate.of(1988, 5, 10),
+                "FEMALE",
+                null,
+                null,
+                "5522222222"
+        );
+
+        when(patientService.updatePatient(
+                eq(patientId),
+                any(UpdatePatientRequest.class)
+        )).thenReturn(updatedPatient);
+
+        // Act & Assert
+        mockMvc.perform(
+                patch("/api/patients/{patientId}", patientId)
+                        .with(authentication(authentication))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                                """
+                    {
+                        "firstName": "Mariana",
+                        "phoneNumber": "5522222222"
+                    }
+                    """)
+                )
+                .andExpect(status().isOk())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.firstName").value("Mariana"))
+                .andExpect(jsonPath("$.paternalSurname").value("Lopez"))
+                .andExpect(jsonPath("$.phoneNumber").value("5522222222"));
+
+        ArgumentCaptor<UpdatePatientRequest> captor =
+                ArgumentCaptor.forClass(UpdatePatientRequest.class);
+
+        verify(patientService).updatePatient(
+                eq(patientId),
+                captor.capture()
+        );
+
+        UpdatePatientRequest capturedRequest = captor.getValue();
+
+        assertEquals("Mariana", capturedRequest.firstName());
+        assertEquals("5522222222", capturedRequest.phoneNumber());
+        assertNull(capturedRequest.paternalSurname());
+        assertNull(capturedRequest.maternalSurname());
+        assertNull(capturedRequest.email());
     }
 }
