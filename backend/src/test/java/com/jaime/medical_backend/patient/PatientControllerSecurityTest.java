@@ -12,14 +12,13 @@ import org.springframework.security.core.Authentication;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.http.MediaType;
-import tools.jackson.databind.ObjectMapper;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -421,7 +420,6 @@ public class PatientControllerSecurityTest {
                     """)
                 )
                 .andExpect(status().isOk())
-                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.firstName").value("Mariana"))
                 .andExpect(jsonPath("$.paternalSurname").value("Lopez"))
                 .andExpect(jsonPath("$.phoneNumber").value("5522222222"));
@@ -442,4 +440,173 @@ public class PatientControllerSecurityTest {
         assertNull(capturedRequest.maternalSurname());
         assertNull(capturedRequest.email());
     }
+
+    @Test
+    void shouldRejectInvalidPatientUpdateRequest() throws Exception {
+        // Arrange
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+
+        Authentication authentication =
+                authenticatedDoctor(doctorId, practiceId);
+
+
+        // Act & Assert
+        mockMvc.perform(
+                patch("/api/patients/{patientId}", patientId)
+                        .with(authentication(authentication))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                                """
+                                        {
+                                          "firstName": "   ",
+                                          "phoneNumber": "1234567890123456789012345"
+                                        }
+                    """)
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(result ->
+                        assertInstanceOf(
+                                MethodArgumentNotValidException.class,
+                                result.getResolvedException()
+                        )
+                );
+
+        verify(patientService, never())
+                .updatePatient(
+                        any(UUID.class),
+                        any(UpdatePatientRequest.class)
+                );
+    }
+
+    @Test
+    void shouldRejectPatientUpdateWithoutCsrfToken() throws Exception {
+        // Arrange
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+
+        Authentication authentication =
+                authenticatedDoctor(doctorId, practiceId);
+
+        // Act & Assert
+        mockMvc.perform(
+                patch("/api/patients/{patientId}", patientId)
+                        .with(authentication(authentication))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                                """
+                                        {
+                                          "firstName": "Mariana",
+                                          "paternalSurname": "Lopez",
+                                          "phoneNumber": "5522222222"
+                                        }
+                    """)
+                )
+                .andExpect(status().isForbidden());
+
+        verify(patientService, never())
+                .updatePatient(
+                        any(UUID.class),
+                        any(UpdatePatientRequest.class)
+                );
+    }
+
+    @Test
+    void shouldRejectUnauthenticatedPatientUpdate() throws Exception {
+        UUID patientId = UUID.randomUUID();
+
+        mockMvc.perform(
+                        patch("/api/patients/{patientId}", patientId)
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                        {
+                            "firstName": "Mariana"
+                        }
+                        """)
+                )
+                .andExpect(status().isUnauthorized());
+
+        verify(patientService, never())
+                .updatePatient(
+                        any(UUID.class),
+                        any(UpdatePatientRequest.class)
+                );
+    }
+
+    @Test
+    void shouldRejectPatientUpdateWhenDoctorHasNoAccess() throws Exception {
+        // Arrange
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+
+        Authentication authentication =
+                authenticatedDoctor(doctorId, practiceId);
+
+        when(patientService.updatePatient(
+                eq(patientId),
+                any(UpdatePatientRequest.class)
+        )).thenThrow(new PatientAccessDeniedException());
+
+
+        // Act & Assert
+
+        mockMvc.perform(
+                patch("/api/patients/{patientId}", patientId)
+                        .with(authentication(authentication))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                        {
+                            "firstName": "Mariana"
+                        }
+                        """)
+        )
+                .andExpect(status().isForbidden());
+
+        verify(patientService).updatePatient(
+                eq(patientId),
+                any(UpdatePatientRequest.class)
+        );
+    }
+
+    @Test
+    void shouldRejectPatientUpdateWhenPatientBelongsToAnotherPractice() throws Exception {
+        // Arrange
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+
+        Authentication authentication =
+                authenticatedDoctor(doctorId, practiceId);
+
+        when(patientService.updatePatient(
+                eq(patientId),
+                any(UpdatePatientRequest.class)
+        )).thenThrow(new PatientNotFoundException(patientId));
+
+        // Act & Assert
+        mockMvc.perform(
+                patch("/api/patients/{patientId}", patientId)
+                        .with(authentication(authentication))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                        {
+                            "firstName": "Mariana"
+                        }
+                        """)
+        )
+                .andExpect(status().isNotFound());
+
+        verify(patientService).updatePatient(
+                eq(patientId),
+                any(UpdatePatientRequest.class)
+        );
+    }
+
 }
