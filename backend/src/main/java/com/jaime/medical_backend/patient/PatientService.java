@@ -144,4 +144,18 @@ public class PatientService {
         patient.updateContactInformation(email, phoneNumber);
         return patient;
     }
+
+    @Transactional
+    public Patient deactivatePatient(UUID patientId) {
+        Patient patient = getPatientForCurrentDoctor(patientId);
+        patient.deactivate();
+        return patient;
+    }
+
+    @Transactional
+    public Patient reactivatePatient(UUID patientId) {
+        Patient patient = getPatientForCurrentDoctor(patientId);
+        patient.activate();
+        return patient;
+    }
 }
