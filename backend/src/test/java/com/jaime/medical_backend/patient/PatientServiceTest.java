@@ -857,5 +857,236 @@ public class PatientServiceTest {
         assertFalse(result.isActive());
     }
 
+    @Test
+    void shouldKeepAlreadyActivePatientActive() {
+        // Arrange
+        UUID patientId = UUID.randomUUID();
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+        Practice practice = mock(Practice.class);
 
+        DoctorPrincipal principal = new DoctorPrincipal(
+                doctorId,
+                practiceId,
+                "doctor@example.com",
+                "unused",
+                true
+        );
+
+        Patient patient = new Patient(
+                practice,
+                "MR-100",
+                "Maria",
+                "Lopez",
+                "Garcia",
+                LocalDate.of(1988, 5, 10),
+                "FEMALE",
+                null,
+                "maria@example.com",
+                "5511111111"
+        );
+        assertTrue(patient.isActive());
+
+        when(currentDoctor.principal()).thenReturn(principal);
+        when(patientRepository.findByIdAndPracticeId(patientId, practiceId))
+                .thenReturn(Optional.of(patient));
+
+        when(doctorPatientRepository.existsByDoctor_IdAndPatient_IdAndActiveTrue(doctorId, patientId))
+                .thenReturn(true);
+
+        // Act
+        Patient result = patientService.reactivatePatient(patientId);
+
+        // Assert
+        assertSame(patient, result);
+        assertTrue(result.isActive());
+
+        verify(patientRepository, never()).save(any(Patient.class));
+    }
+
+    @Test
+    void shouldRejectDeactivationWhenPatientIsNotAssignedToDoctor() {
+        // Arrange
+        UUID patientId = UUID.randomUUID();
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+        Practice practice = mock(Practice.class);
+
+        DoctorPrincipal principal = new DoctorPrincipal(
+                doctorId,
+                practiceId,
+                "doctor@example.com",
+                "unused",
+                true
+        );
+
+        Patient patient = new Patient(
+                practice,
+                "MR-100",
+                "Maria",
+                "Lopez",
+                "Garcia",
+                LocalDate.of(1988, 5, 10),
+                "FEMALE",
+                null,
+                "maria@example.com",
+                "5511111111"
+        );
+
+        when(currentDoctor.principal()).thenReturn(principal);
+        when(patientRepository.findByIdAndPracticeId(
+                patientId,
+                practiceId
+        )).thenReturn(Optional.of(patient));
+
+        when(doctorPatientRepository
+                .existsByDoctor_IdAndPatient_IdAndActiveTrue(
+                        doctorId,
+                        patientId
+                )).thenReturn(false);
+        // Act & Assert
+
+        assertThrows(
+                PatientAccessDeniedException.class,
+                () -> patientService.deactivatePatient(patientId)
+        );
+
+        assertTrue(patient.isActive());
+        verify(patientRepository, never()).save(any(Patient.class));
+    }
+
+    @Test
+    void shouldRejectReactivationWhenPatientIsNotAssignedToDoctor() {
+        // Arrange
+        UUID patientId = UUID.randomUUID();
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+        Practice practice = mock(Practice.class);
+
+        DoctorPrincipal principal = new DoctorPrincipal(
+                doctorId,
+                practiceId,
+                "doctor@example.com",
+                "unused",
+                true
+        );
+
+        Patient patient = new Patient(
+                practice,
+                "MR-100",
+                "Maria",
+                "Lopez",
+                "Garcia",
+                LocalDate.of(1988, 5, 10),
+                "FEMALE",
+                null,
+                "maria@example.com",
+                "5511111111"
+        );
+
+        patient.deactivate();
+        assertFalse(patient.isActive());
+
+        when(currentDoctor.principal()).thenReturn(principal);
+        when(patientRepository.findByIdAndPracticeId(
+                patientId,
+                practiceId
+        )).thenReturn(Optional.of(patient));
+
+        when(doctorPatientRepository
+                .existsByDoctor_IdAndPatient_IdAndActiveTrue(
+                        doctorId,
+                        patientId
+                )).thenReturn(false);
+        // Act & Assert
+
+        assertThrows(
+                PatientAccessDeniedException.class,
+                () -> patientService.reactivatePatient(patientId)
+        );
+
+        assertFalse(patient.isActive());
+        verify(patientRepository, never()).save(any(Patient.class));
+    }
+
+    @Test
+    void shouldRejectDeactivationWhenPatientBelongsToAnotherPractice(){
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+
+        DoctorPrincipal principal = new DoctorPrincipal(
+                doctorId,
+                practiceId,
+                "doctor@example.com",
+                "unused",
+                true
+        );
+
+        Practice practice = mock(Practice.class);
+
+        Patient patient = new Patient(
+                practice,
+                "MR-100",
+                "Maria",
+                "Lopez",
+                "Garcia",
+                LocalDate.of(1988, 5, 10),
+                "FEMALE",
+                null,
+                "maria@example.com",
+                "5511111111"
+        );
+
+
+        when(currentDoctor.principal()).thenReturn(principal);
+        when(patientRepository.findByIdAndPracticeId(
+                patientId,
+                practiceId
+        )).thenReturn(Optional.empty());
+
+        assertThrows(
+                PatientNotFoundException.class,
+                () -> patientService.deactivatePatient(patientId)
+        );
+
+        verify(doctorPatientRepository, never())
+                .existsByDoctor_IdAndPatient_IdAndActiveTrue(
+                        any(UUID.class),
+                        any(UUID.class)
+                );
+
+    }
+
+    @Test
+    void shouldRejectReactivationWhenPatientBelongsToAnotherPractice() {
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+
+        DoctorPrincipal principal = new DoctorPrincipal(
+                doctorId,
+                practiceId,
+                "doctor@example.com",
+                "unused",
+                true
+        );
+
+        when(currentDoctor.principal()).thenReturn(principal);
+        when(patientRepository.findByIdAndPracticeId(
+                patientId,
+                practiceId
+        )).thenReturn(Optional.empty());
+
+        assertThrows(
+                PatientNotFoundException.class,
+                () -> patientService.reactivatePatient(patientId)
+        );
+
+        verify(doctorPatientRepository, never())
+                .existsByDoctor_IdAndPatient_IdAndActiveTrue(
+                        any(UUID.class),
+                        any(UUID.class)
+                );
+    }
 }
