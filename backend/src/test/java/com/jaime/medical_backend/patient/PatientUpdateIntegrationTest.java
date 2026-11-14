@@ -167,9 +167,4 @@ class PatientUpdateIntegrationTest {
         SecurityContextHolder.clearContext();
     }
 
-    private record TestPatientIds(
-            UUID practiceId,
-            UUID doctorId,
-            UUID patientId
-    ) {}
 }
