@@ -56,4 +56,16 @@ public class PatientController {
         PatientResponse response = PatientResponse.from(patient);
         return ResponseEntity.ok(response);
     }
+
+    @PatchMapping("/{patientId}/deactivate")
+    public PatientResponse deactivatePatient(@PathVariable UUID patientId) {
+        Patient patient = patientService.deactivatePatient(patientId);
+        return PatientResponse.from(patient);
+    }
+
+    @PatchMapping("/{patientId}/reactivate")
+    public PatientResponse reactivatePatient(@PathVariable UUID patientId) {
+        Patient patient = patientService.reactivatePatient(patientId);
+        return PatientResponse.from(patient);
+    }
 }

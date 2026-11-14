@@ -609,4 +609,255 @@ public class PatientControllerSecurityTest {
         );
     }
 
+    @Test
+    void shouldDeactivatePatientWhenDoctorHasAccess() throws Exception {
+        // Arrange
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+
+        Authentication authentication =
+                authenticatedDoctor(doctorId, practiceId);
+
+        Practice practice = mock(Practice.class);
+
+        Patient patient = new Patient(
+                practice,
+                "MR-100",
+                "Maria",
+                "Lopez",
+                "Garcia",
+                LocalDate.of(1988, 5, 10),
+                "FEMALE",
+                null,
+                null,
+                "5551234567"
+        );
+
+        assertTrue(patient.isActive());
+        patient.deactivate();
+
+        when(patientService.deactivatePatient(patientId))
+                .thenReturn(patient);
+
+
+
+        // Act & Assert
+        mockMvc.perform(
+                patch("/api/patients/{patientId}/deactivate", patientId)
+                        .with(authentication(authentication))
+                        .with(csrf())
+        )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.active").value(false))
+                .andExpect(jsonPath("$.medicalRecordNumber").value("MR-100"));
+
+        verify(patientService).deactivatePatient(patientId);
+    }
+
+    @Test
+    void shouldReactivatePatientWhenDoctorHasAccess() throws Exception {
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+
+        Authentication authentication =
+                authenticatedDoctor(doctorId, practiceId);
+
+        Practice practice = mock(Practice.class);
+
+        Patient patient = new Patient(
+                practice,
+                "MR-100",
+                "Maria",
+                "Lopez",
+                "Garcia",
+                LocalDate.of(1988, 5, 10),
+                "FEMALE",
+                null,
+                null,
+                "5551234567"
+        );
+
+        patient.deactivate();
+        assertFalse(patient.isActive());
+        patient.activate();
+        assertTrue(patient.isActive());
+
+        when(patientService.reactivatePatient(patientId))
+                .thenReturn(patient);
+
+        mockMvc.perform(
+                        patch("/api/patients/{patientId}/reactivate", patientId)
+                                .with(authentication(authentication))
+                                .with(csrf())
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.active").value(true))
+                .andExpect(jsonPath("$.medicalRecordNumber").value("MR-100"));
+        verify(patientService).reactivatePatient(patientId);
+    }
+
+    @Test
+    void shouldRejectDeactivationWhenDoctorHasNoAccess() throws Exception {
+        // Arrange
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+
+        Authentication authentication =
+                authenticatedDoctor(doctorId, practiceId);
+
+        when(patientService.deactivatePatient(patientId))
+                .thenThrow(new PatientAccessDeniedException());
+
+        // Act & Assert
+        mockMvc.perform(
+                patch("/api/patients/{patientId}/deactivate", patientId)
+                        .with(authentication(authentication))
+                        .with(csrf())
+        )
+                .andExpect(status().isForbidden());
+        verify(patientService).deactivatePatient(patientId);
+    }
+
+    @Test
+    void shouldRejectReactivationWhenDoctorHasNoAccess() throws Exception {
+        // Arrange
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+
+        Authentication authentication =
+                authenticatedDoctor(doctorId, practiceId);
+
+        when(patientService.reactivatePatient(patientId))
+                .thenThrow(new PatientAccessDeniedException());
+
+        // Act & Assert
+        mockMvc.perform(
+                        patch("/api/patients/{patientId}/reactivate", patientId)
+                                .with(authentication(authentication))
+                                .with(csrf())
+                )
+                .andExpect(status().isForbidden());
+        verify(patientService).reactivatePatient(patientId);
+    }
+
+    @Test
+    void shouldRejectDeactivationWhenPatientBelongsToAnotherPractice()
+            throws Exception {
+        // Arrange
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+
+        Authentication authentication =
+                authenticatedDoctor(doctorId, practiceId);
+
+        when(patientService.deactivatePatient(patientId))
+                .thenThrow(new PatientNotFoundException(patientId));
+
+        // Act & Assert
+        mockMvc.perform(
+                        patch("/api/patients/{patientId}/deactivate", patientId)
+                                .with(authentication(authentication))
+                                .with(csrf())
+                )
+                .andExpect(status().isNotFound());
+        verify(patientService).deactivatePatient(patientId);
+    }
+
+    @Test
+    void shouldRejectReactivationWhenPatientBelongsToAnotherPractice()
+            throws Exception {
+        // Arrange
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+
+        Authentication authentication =
+                authenticatedDoctor(doctorId, practiceId);
+
+        when(patientService.reactivatePatient(patientId))
+                .thenThrow(new PatientNotFoundException(patientId));
+
+        // Act & Assert
+        mockMvc.perform(
+                        patch("/api/patients/{patientId}/reactivate", patientId)
+                                .with(authentication(authentication))
+                                .with(csrf())
+                )
+                .andExpect(status().isNotFound());
+        verify(patientService).reactivatePatient(patientId);
+    }
+
+    @Test
+    void shouldRejectUnauthenticatedDeactivation() throws Exception {
+        // Arrange
+        UUID patientId = UUID.randomUUID();
+
+        // Act & Assert
+        mockMvc.perform(
+                        patch("/api/patients/{patientId}/deactivate", patientId)
+                                .with(csrf())
+                )
+                .andExpect(status().isUnauthorized());
+
+        verify(patientService, never()).deactivatePatient(any(UUID.class));
+    }
+
+    @Test
+    void shouldRejectUnauthenticatedReactivation() throws Exception {
+        // Arrange
+        UUID patientId = UUID.randomUUID();
+
+        // Act & Assert
+        mockMvc.perform(
+                        patch("/api/patients/{patientId}/reactivate", patientId)
+                                .with(csrf())
+                )
+                .andExpect(status().isUnauthorized());
+
+        verify(patientService, never()).reactivatePatient(any(UUID.class));
+    }
+
+    @Test
+    void shouldRejectDeactivationWithoutCsrfToken() throws Exception {
+        // Arrange
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+
+        Authentication authentication =
+                authenticatedDoctor(doctorId, practiceId);
+
+        // Act & Assert
+        mockMvc.perform(
+                        patch("/api/patients/{patientId}/deactivate", patientId)
+                                .with(authentication(authentication))
+                )
+                .andExpect(status().isForbidden());
+        verify(patientService, never()).deactivatePatient(any(UUID.class));
+    }
+
+    @Test
+    void shouldRejectReactivationWithoutCsrfToken() throws Exception {
+        // Arrange
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+
+        Authentication authentication =
+                authenticatedDoctor(doctorId, practiceId);
+
+        // Act & Assert
+        mockMvc.perform(
+                        patch("/api/patients/{patientId}/reactivate", patientId)
+                                .with(authentication(authentication))
+                )
+                .andExpect(status().isForbidden());
+        verify(patientService, never()).reactivatePatient(any(UUID.class));
+    }
+
 }
