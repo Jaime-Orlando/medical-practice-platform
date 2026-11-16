@@ -13,6 +13,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -21,7 +25,13 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@Testcontainers
 class PatientSpecificationsTest {
+
+    @Container
+    @ServiceConnection
+    static PostgreSQLContainer postgres =
+            new PostgreSQLContainer("postgres:17-alpine");
 
     @Autowired
     private PatientRepository patientRepository;
@@ -117,7 +127,7 @@ class PatientSpecificationsTest {
         );
         List<Patient> result =
                 patientRepository.findAll(
-                        PatientSpecifications.activeForDoctor(doctor.getId(), doctor.getPractice().getId())
+                        PatientSpecifications.visibleForDoctor(doctor.getId(), doctor.getPractice().getId())
                 );
 
         assertEquals(1, result.size());
@@ -154,7 +164,7 @@ class PatientSpecificationsTest {
 
         List<Patient> result =
                 patientRepository.findAll(
-                        PatientSpecifications.activeForDoctor(doctor2.getId(), doctor2.getPractice().getId())
+                        PatientSpecifications.visibleForDoctor(doctor2.getId(), doctor2.getPractice().getId())
                 );
 
         assertTrue(result.isEmpty());
@@ -184,14 +194,14 @@ class PatientSpecificationsTest {
 
         List<Patient> result =
                 patientRepository.findAll(
-                        PatientSpecifications.activeForDoctor(doctor.getId(), doctor.getPractice().getId())
+                        PatientSpecifications.visibleForDoctor(doctor.getId(), doctor.getPractice().getId())
                 );
 
         assertTrue(result.isEmpty());
     }
 
     @Test
-    void shouldExcludePatientWhenPatientIsInactive() {
+    void shouldIncludeInactivePatientWhenDoctorHasActiveAssignment() {
 
         Doctor doctor = saveDoctor(
                 "Ana",
@@ -216,10 +226,11 @@ class PatientSpecificationsTest {
 
         List<Patient> result =
                 patientRepository.findAll(
-                        PatientSpecifications.activeForDoctor(doctor.getId(), doctor.getPractice().getId())
+                        PatientSpecifications.visibleForDoctor(doctor.getId(), doctor.getPractice().getId())
                 );
 
-        assertTrue(result.isEmpty());
+        assertEquals(1, result.size());
+        assertEquals("Maria", result.getFirst().getFirstName());
 
     }
 
@@ -245,7 +256,7 @@ class PatientSpecificationsTest {
 
         List<Patient> result =
                 patientRepository.findAll(
-                        PatientSpecifications.activeForDoctor(doctor.getId(), doctor.getPractice().getId())
+                        PatientSpecifications.visibleForDoctor(doctor.getId(), doctor.getPractice().getId())
                                 .and(PatientSpecifications.matchesSearchTerms("Maria"))
                 );
 
@@ -274,7 +285,7 @@ class PatientSpecificationsTest {
 
         List<Patient> result =
                 patientRepository.findAll(
-                        PatientSpecifications.activeForDoctor(doctor.getId(), doctor.getPractice().getId())
+                        PatientSpecifications.visibleForDoctor(doctor.getId(), doctor.getPractice().getId())
                                 .and(PatientSpecifications.matchesSearchTerms("Maria Lopez"))
                 );
         assertEquals(1, result.size());
@@ -302,7 +313,7 @@ class PatientSpecificationsTest {
 
         List<Patient> result =
                 patientRepository.findAll(
-                        PatientSpecifications.activeForDoctor(doctor.getId(), doctor.getPractice().getId())
+                        PatientSpecifications.visibleForDoctor(doctor.getId(), doctor.getPractice().getId())
                                 .and(PatientSpecifications.matchesSearchTerms("Lopez Maria"))
                 );
         assertEquals(1, result.size());
@@ -331,7 +342,7 @@ class PatientSpecificationsTest {
 
         List<Patient> result =
                 patientRepository.findAll(
-                        PatientSpecifications.activeForDoctor(doctor.getId(), doctor.getPractice().getId())
+                        PatientSpecifications.visibleForDoctor(doctor.getId(), doctor.getPractice().getId())
                                 .and(PatientSpecifications.matchesSearchTerms("MR-100"))
                 );
         assertEquals(1, result.size());
@@ -369,7 +380,7 @@ class PatientSpecificationsTest {
 
         List<Patient> result =
                 patientRepository.findAll(
-                        PatientSpecifications.activeForDoctor(doctor.getId(), doctor.getPractice().getId())
+                        PatientSpecifications.visibleForDoctor(doctor.getId(), doctor.getPractice().getId())
                                 .and(PatientSpecifications.matchesSearchTerms("Maria Perez"))
                 );
         assertTrue(result.isEmpty());
@@ -397,7 +408,7 @@ class PatientSpecificationsTest {
 
         List<Patient> result =
                 patientRepository.findAll(
-                        PatientSpecifications.activeForDoctor(doctor.getId(), doctor.getPractice().getId())
+                        PatientSpecifications.visibleForDoctor(doctor.getId(), doctor.getPractice().getId())
                                 .and(PatientSpecifications.matchesSearchTerms("mArIa lOpEz"))
                 );
         assertEquals(1, result.size());
@@ -432,7 +443,7 @@ class PatientSpecificationsTest {
 
         List<Patient> result =
                 patientRepository.findAll(
-                        PatientSpecifications.activeForDoctor(doctor2.getId(), doctor2.getPractice().getId())
+                        PatientSpecifications.visibleForDoctor(doctor2.getId(), doctor2.getPractice().getId())
                                 .and(PatientSpecifications.matchesSearchTerms("Maria Lopez"))
                 );
         assertTrue(result.isEmpty());
@@ -473,12 +484,173 @@ class PatientSpecificationsTest {
 
         List<Patient> result =
                 patientRepository.findAll(
-                        PatientSpecifications.activeForDoctor(
+                        PatientSpecifications.visibleForDoctor(
                                 doctor.getId(),
                                 practice.getId()
                         )
                 );
 
         assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void shouldReturnOnlyActivePatients() {
+        // Arrange
+        Doctor doctor = saveDoctor(
+                "Ana",
+                "Lopez",
+                "ana@example.com"
+        );
+
+        Patient activePatient = savePatient(
+                "MR-100",
+                "Maria",
+                "Lopez",
+                "Garcia"
+        );
+
+        Patient inactivePatient = savePatient(
+                "MR-101",
+                "Juan",
+                "Perez",
+                "Lopez"
+        );
+
+        inactivePatient.deactivate();
+
+        doctorPatientRepository.save(
+                new DoctorPatient(doctor, activePatient)
+        );
+
+        doctorPatientRepository.save(
+                new DoctorPatient(doctor, inactivePatient)
+        );
+
+        // Act
+        List<Patient> results = patientRepository.findAll(
+                PatientSpecifications.visibleForDoctor(
+                        doctor.getId(),
+                        practice.getId()
+                ).and(
+                        PatientSpecifications.hasStatus(
+                                PatientStatusFilter.ACTIVE
+                        )
+                )
+        );
+
+        // Assert
+        assertEquals(1, results.size());
+        assertEquals(
+                activePatient.getId(),
+                results.getFirst().getId()
+        );
+    }
+
+    @Test
+    void shouldReturnOnlyInactivePatients() {
+        // Arrange
+        Doctor doctor = saveDoctor(
+                "Ana",
+                "Lopez",
+                "ana@example.com"
+        );
+
+        Patient activePatient = savePatient(
+                "MR-100",
+                "Maria",
+                "Lopez",
+                "Garcia"
+        );
+
+        Patient inactivePatient = savePatient(
+                "MR-101",
+                "Juan",
+                "Perez",
+                "Lopez"
+        );
+
+        inactivePatient.deactivate();
+
+        doctorPatientRepository.save(
+                new DoctorPatient(doctor, activePatient)
+        );
+
+        doctorPatientRepository.save(
+                new DoctorPatient(doctor, inactivePatient)
+        );
+
+        // Act
+        List<Patient> results = patientRepository.findAll(
+                PatientSpecifications.visibleForDoctor(
+                        doctor.getId(),
+                        practice.getId()
+                ).and(
+                        PatientSpecifications.hasStatus(
+                                PatientStatusFilter.INACTIVE
+                        )
+                )
+        );
+
+        // Assert
+        assertEquals(1, results.size());
+        assertEquals(
+                inactivePatient.getId(),
+                results.getFirst().getId()
+        );
+    }
+
+    @Test
+    void shouldReturnPatientsRegardlessOfStatus() {
+        // Arrange
+        Doctor doctor = saveDoctor(
+                "Ana",
+                "Lopez",
+                "ana@example.com"
+        );
+
+        Patient activePatient = savePatient(
+                "MR-100",
+                "Maria",
+                "Lopez",
+                "Garcia"
+        );
+
+        Patient inactivePatient = savePatient(
+                "MR-101",
+                "Juan",
+                "Perez",
+                "Lopez"
+        );
+
+        inactivePatient.deactivate();
+
+        doctorPatientRepository.save(
+                new DoctorPatient(doctor, activePatient)
+        );
+
+        doctorPatientRepository.save(
+                new DoctorPatient(doctor, inactivePatient)
+        );
+
+        // Act
+        List<Patient> results = patientRepository.findAll(
+                PatientSpecifications.visibleForDoctor(
+                        doctor.getId(),
+                        practice.getId()
+                ).and(
+                        PatientSpecifications.hasStatus(
+                                PatientStatusFilter.ALL
+                        )
+                )
+        );
+
+        // Assert
+        assertEquals(2, results.size());
+        assertTrue(
+                results.stream().anyMatch(p -> p.getId().equals(activePatient.getId()))
+        );
+        assertTrue(
+                results.stream().anyMatch(p -> p.getId().equals(inactivePatient.getId()))
+        );
     }
 }

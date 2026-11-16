@@ -94,15 +94,19 @@ public class PatientService {
         doctorPatientRepository.save(doctorPatient);
         return savedPatient;
     }
+
     @Transactional(readOnly = true)
-    public List<Patient> getPatientsForCurrentDoctor(String query) {
+    public List<Patient> getPatientsForCurrentDoctor(
+            String query,
+            PatientStatusFilter status
+    ) {
         DoctorPrincipal principal = currentDoctor.principal();
 
         Specification<Patient> specification =
-                PatientSpecifications.activeForDoctor(
+                PatientSpecifications.visibleForDoctor(
                         principal.getDoctorId(),
                         principal.getPracticeId()
-                );
+                ).and(PatientSpecifications.hasStatus(status));
 
         if (query != null && !query.isBlank()) {
             specification = specification.and(
@@ -111,6 +115,11 @@ public class PatientService {
         }
 
         return patientRepository.findAll(specification);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Patient> getPatientsForCurrentDoctor(String query) {
+        return getPatientsForCurrentDoctor(query, PatientStatusFilter.ACTIVE);
     }
 
     @Transactional

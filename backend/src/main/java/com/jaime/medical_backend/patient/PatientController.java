@@ -20,9 +20,10 @@ public class PatientController {
 
     @GetMapping
     public List<PatientSummaryResponse> getPatients(
-            @RequestParam(required = false) String query
+            @RequestParam(required = false) String query,
+            @RequestParam(defaultValue = "ACTIVE") PatientStatusFilter status
     ) {
-        return patientService.getPatientsForCurrentDoctor(query)
+        return patientService.getPatientsForCurrentDoctor(query, status)
                 .stream()
                 .map(PatientSummaryResponse::from)
                 .toList();

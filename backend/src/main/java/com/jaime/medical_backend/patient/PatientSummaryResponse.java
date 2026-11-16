@@ -10,7 +10,8 @@ public record PatientSummaryResponse(
         String paternalSurname,
         String maternalSurname,
         LocalDate birthDate,
-        String phoneNumber
+        String phoneNumber,
+        boolean active
 ) {
     public static PatientSummaryResponse from(Patient patient) {
         return new PatientSummaryResponse(
@@ -20,7 +21,8 @@ public record PatientSummaryResponse(
                 patient.getPaternalSurname(),
                 patient.getMaternalSurname(),
                 patient.getBirthDate(),
-                patient.getPhoneNumber()
+                patient.getPhoneNumber(),
+                patient.isActive()
         );
     }
 }

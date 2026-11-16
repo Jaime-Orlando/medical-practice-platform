@@ -314,8 +314,10 @@ public class PatientControllerSecurityTest {
                 "5559876543"
         );
 
-        when(patientService.getPatientsForCurrentDoctor(null))
-                .thenReturn(List.of(maria, juan));
+        when(patientService.getPatientsForCurrentDoctor(
+                null,
+                PatientStatusFilter.ACTIVE
+        )).thenReturn(List.of(maria, juan));
 
         mockMvc.perform(
                         get("/api/patients")
@@ -327,6 +329,11 @@ public class PatientControllerSecurityTest {
                 .andExpect(jsonPath("$[0].firstName").value("Maria"))
                 .andExpect(jsonPath("$[1].medicalRecordNumber").value("MR-101"))
                 .andExpect(jsonPath("$[1].firstName").value("Juan"));
+
+        verify(patientService).getPatientsForCurrentDoctor(
+                null,
+                PatientStatusFilter.ACTIVE
+        );
     }
 
     @Test
@@ -358,8 +365,12 @@ public class PatientControllerSecurityTest {
                 "5551234567"
         );
 
-        when(patientService.getPatientsForCurrentDoctor("Maria"))
-                .thenReturn(List.of(maria));
+        when(patientService.getPatientsForCurrentDoctor(
+                "Maria",
+                PatientStatusFilter.ACTIVE
+        )).thenReturn(List.of(maria));
+
+
 
         mockMvc.perform(
                         get("/api/patients")
@@ -371,8 +382,10 @@ public class PatientControllerSecurityTest {
                 .andExpect(jsonPath("$[0].medicalRecordNumber").value("MR-100"))
                 .andExpect(jsonPath("$[0].firstName").value("Maria"));
 
-        verify(patientService)
-                .getPatientsForCurrentDoctor("Maria");
+        verify(patientService).getPatientsForCurrentDoctor(
+                "Maria",
+                PatientStatusFilter.ACTIVE
+        );
     }
 
     @Test

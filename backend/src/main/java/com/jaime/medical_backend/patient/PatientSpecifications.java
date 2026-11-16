@@ -16,7 +16,7 @@ public final class PatientSpecifications {
     private PatientSpecifications() {
     }
 
-    public static Specification<Patient> activeForDoctor(UUID doctorId, UUID practiceId) {
+    public static Specification<Patient> visibleForDoctor(UUID doctorId, UUID practiceId) {
         return (root, query, criteriaBuilder) -> {
 
             Subquery<Integer> subquery =
@@ -42,7 +42,6 @@ public final class PatientSpecifications {
             );
 
             return criteriaBuilder.and(
-                    criteriaBuilder.isTrue(root.get("active")),
                     criteriaBuilder.equal(root.get("practice").get("id"), practiceId),
                     criteriaBuilder.exists(subquery)
             );
@@ -83,6 +82,14 @@ public final class PatientSpecifications {
             return criteriaBuilder.and(
                     predicates.toArray(new Predicate[0])
             );
+        };
+    }
+
+    public static Specification<Patient> hasStatus(PatientStatusFilter status) {
+        return (root, query, criteriaBuilder) -> switch (status) {
+            case ACTIVE -> criteriaBuilder.isTrue(root.get("active"));
+            case INACTIVE -> criteriaBuilder.isFalse(root.get("active"));
+            case ALL -> criteriaBuilder.conjunction();
         };
     }
 }
