@@ -4,8 +4,10 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 @RestController
@@ -21,9 +23,17 @@ public class PatientController {
     @GetMapping
     public List<PatientSummaryResponse> getPatients(
             @RequestParam(required = false) String query,
-            @RequestParam(defaultValue = "ACTIVE") PatientStatusFilter status
+            @RequestParam(defaultValue = "active") String status
     ) {
-        return patientService.getPatientsForCurrentDoctor(query, status)
+        PatientStatusFilter statusFilter;
+        try{
+            statusFilter  = PatientStatusFilter.valueOf(status.toUpperCase(Locale.ROOT));
+        }
+        catch(IllegalArgumentException exception){
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid patient status: " + status, exception);
+        }
+
+        return patientService.getPatientsForCurrentDoctor(query, statusFilter)
                 .stream()
                 .map(PatientSummaryResponse::from)
                 .toList();

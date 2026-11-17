@@ -873,4 +873,101 @@ public class PatientControllerSecurityTest {
         verify(patientService, never()).reactivatePatient(any(UUID.class));
     }
 
+    @Test
+    void shouldAcceptLowerCaseInactiveStatus()throws Exception{
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+
+        Authentication authentication =
+                authenticatedDoctor(doctorId, practiceId);
+
+        when(patientService.getPatientsForCurrentDoctor(null, PatientStatusFilter.INACTIVE)).thenReturn(List.of());
+
+        mockMvc.perform(
+                get("/api/patients")
+                        .param("status", "inactive")
+                        .with(authentication(authentication))
+        )
+        .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+        verify(patientService).getPatientsForCurrentDoctor(null, PatientStatusFilter.INACTIVE);
+    }
+
+    @Test
+    void shouldRejectInvalidPatientStatus() throws Exception {
+        UUID doctorId = UUID.randomUUID();
+        UUID practiceId = UUID.randomUUID();
+
+        Authentication authentication =
+                authenticatedDoctor(doctorId, practiceId);
+
+        mockMvc.perform(
+                get("/api/patients")
+                        .param("status", "unknown")
+                        .with(authentication(authentication))
+        )
+                .andExpect(status().isBadRequest());
+
+        verify(patientService, never()).getPatientsForCurrentDoctor(any(), any(PatientStatusFilter.class));
+    }
+
+    @Test
+    void shouldAcceptExplicitActiveStatus() throws Exception {
+        Authentication authentication =
+                authenticatedDoctor(UUID.randomUUID(), UUID.randomUUID());
+
+        mockMvc.perform(
+                        get("/api/patients")
+                                .param("status", "active")
+                                .with(authentication(authentication))
+                )
+                .andExpect(status().isOk());
+
+        verify(patientService).getPatientsForCurrentDoctor(
+                null,
+                PatientStatusFilter.ACTIVE
+        );
+    }
+
+    @Test
+    void shouldAcceptAllPatientStatuses() throws Exception {
+        Authentication authentication = authenticatedDoctor(
+                UUID.randomUUID(),
+                UUID.randomUUID()
+        );
+
+        mockMvc.perform(
+                        get("/api/patients")
+                                .param("status", "all")
+                                .with(authentication(authentication))
+                )
+                .andExpect(status().isOk());
+
+        verify(patientService).getPatientsForCurrentDoctor(
+                null,
+                PatientStatusFilter.ALL
+        );
+    }
+
+    @Test
+    void shouldCombineSearchWithInactiveStatus() throws Exception {
+        Authentication authentication = authenticatedDoctor(
+                UUID.randomUUID(),
+                UUID.randomUUID()
+        );
+
+        mockMvc.perform(
+                        get("/api/patients")
+                                .param("query", "Maria")
+                                .param("status", "inactive")
+                                .with(authentication(authentication))
+                )
+                .andExpect(status().isOk());
+
+        verify(patientService).getPatientsForCurrentDoctor(
+                "Maria",
+                PatientStatusFilter.INACTIVE
+        );
+    }
+
 }
